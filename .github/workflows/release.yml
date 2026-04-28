@@ -1,0 +1,60 @@
+name: Release
+
+# Push to main → run tests → publish to npm if package.json version
+# isn't already on the registry. Idempotent: a push that doesn't change
+# the version is a no-op for npm.
+#
+# Setup: add NPM_TOKEN as a repository secret. Generate at
+# https://www.npmjs.com/settings/<user>/tokens → "Granular Access Token"
+# with publish on `@velocitykode/velocity-vite-plugin` and "Bypass 2FA"
+# enabled (CI cannot prompt for an OTP).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Test
+        run: bun test src/index.test.ts
+
+      - name: Set up Node (publish runs through npm)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish if version is new
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::error title=NPM_TOKEN missing::Add NPM_TOKEN secret to this repo before the workflow can publish."
+            exit 1
+          fi
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "${PKG_NAME}@${PKG_VERSION} already on npm - nothing to publish."
+            exit 0
+          fi
+          echo "Publishing ${PKG_NAME}@${PKG_VERSION}..."
+          npm publish --access public --provenance

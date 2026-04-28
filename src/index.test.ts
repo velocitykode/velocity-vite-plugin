@@ -18,11 +18,18 @@ import velocity from "./index.ts";
 // callConfig invokes the plugin's `config` hook and returns its result.
 // The hook can return undefined, an object, or a Promise - we only
 // support the object form, which is what our plugin returns.
-function callConfig(plugin: Plugin, userConfig: UserConfig = {}): UserConfig {
+function callConfig(
+	plugin: Plugin,
+	userConfig: UserConfig = {},
+	command: "build" | "serve" = "build",
+): UserConfig {
 	const hook = plugin.config;
 	assert.ok(hook, "plugin.config hook is required");
 	const fn = typeof hook === "function" ? hook : hook.handler;
-	const result = fn.call(plugin, userConfig, { command: "build", mode: "production" });
+	const result = fn.call(plugin, userConfig, {
+		command,
+		mode: command === "build" ? "production" : "development",
+	});
 	assert.ok(result && typeof result === "object" && !(result instanceof Promise));
 	return result as UserConfig;
 }
@@ -41,14 +48,24 @@ test("input is required", () => {
 	);
 });
 
-test("config() sets base, outDir, manifest, input from defaults", () => {
+test("config() build mode: base /build/, outDir, manifest, input", () => {
 	const p = velocity("resources/js/app.tsx");
-	const cfg = callConfig(p);
+	const cfg = callConfig(p, {}, "build");
 	assert.equal(cfg.base, "/build/");
 	assert.equal(cfg.publicDir, false);
 	assert.equal(cfg.build?.outDir, "public/build");
 	assert.equal(cfg.build?.manifest, "manifest.json");
 	assert.deepEqual(cfg.build?.rollupOptions?.input, ["resources/js/app.tsx"]);
+});
+
+test("config() serve mode: base is empty so dev URLs serve at root", () => {
+	const p = velocity("resources/js/app.tsx");
+	const cfg = callConfig(p, {}, "serve");
+	assert.equal(
+		cfg.base,
+		"",
+		"dev base must be empty: Vite serves at root in dev so the helper's <script src=${hot}/${entry}> URLs resolve",
+	);
 });
 
 test("config() respects user-supplied base/outDir/manifest/input", () => {
@@ -73,7 +90,7 @@ test("config() honors custom buildDirectory and publicDirectory", () => {
 		publicDirectory: "static",
 		buildDirectory: "assets",
 	});
-	const cfg = callConfig(p);
+	const cfg = callConfig(p, {}, "build");
 	assert.equal(cfg.base, "/assets/");
 	assert.equal(cfg.build?.outDir, "static/assets");
 });

@@ -130,7 +130,7 @@ function velocityPlugin(config: ResolvedPluginConfig): Plugin {
 		name: "velocitykode",
 		enforce: "post",
 
-		config(userConfig: UserConfig, _env: ConfigEnv): UserConfig {
+		config(userConfig: UserConfig, env: ConfigEnv): UserConfig {
 			const aliases =
 				config.resolveAlias === false
 					? userConfig.resolve?.alias
@@ -142,13 +142,26 @@ function velocityPlugin(config: ResolvedPluginConfig): Plugin {
 								| undefined,
 						);
 
+			// `base` for the dev server is empty so the Vite middleware
+			// serves entrypoints at the root (matches the `<script
+			// src="${hot}/resources/js/app.tsx">` URLs the Go bond/vite
+			// Helper emits in dev). For `vite build`, base is the
+			// build subdirectory so the manifest's relative paths
+			// resolve under `/build/...` in production HTML.
+			const buildBase = `/${config.buildDirectory}/`;
+			const resolvedBase =
+				userConfig.base ?? (env.command === "build" ? buildBase : "");
+
 			return {
-				base: userConfig.base ?? `/${config.buildDirectory}/`,
+				base: resolvedBase,
 				// Vite copies publicDir into outDir at build time; for our
 				// layout outDir IS inside publicDir, which would create
 				// recursion. Disable publicDir to break the cycle.
 				publicDir: userConfig.publicDir ?? false,
 				build: {
+					// String form (not `true`): emit the manifest directly
+					// at `<outDir>/manifest.json`, no `.vite/` subdir. The
+					// Go-side bond/vite Helper defaults match this layout.
 					manifest: userConfig.build?.manifest ?? "manifest.json",
 					outDir:
 						userConfig.build?.outDir ??
