@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # id-token: write is required for `npm publish --provenance`
+      # so the published tarball carries a signed attestation linking
+      # it to this workflow run + commit. Drop the flag if not desired.
+      id-token: write
     steps:
       - uses: actions/checkout@v5
 
