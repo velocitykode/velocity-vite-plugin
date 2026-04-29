@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Vite plugin for Velocity Framework apps - manages public/hot, sets build defaults, and wires entrypoints so the framework's bond/vite Go helper resolves the right URLs in dev and prod.",
   "keywords": ["vite", "vite-plugin", "velocity", "velocitykode", "inertia"],
   "homepage": "https://github.com/velocitykode/velocity-vite-plugin",
